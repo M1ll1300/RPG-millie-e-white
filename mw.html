@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A Jornada de Millie e White</title>
+<style>
+  :root{
+    --bg-1:#ffecf5;
+    --bg-2:#ffd6eb;
+    --card:#fff6fb;
+    --accent:#ff6fb5;
+    --accent-2:#ff9ad1;
+    --muted:#7a4b6d;
+    --glass: rgba(255,255,255,0.6);
+    --shadow: 0 6px 16px rgba(122,75,109,0.14);
+  }
+  html,body{height:100%;margin:0;font-family:'Merriweather','Comic Neue',serif;background:linear-gradient(180deg,var(--bg-1),var(--bg-2));color:var(--muted);}
+  .wrap{max-width:980px;margin:16px auto;padding:12px}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .mark{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;box-shadow:0 8px 20px rgba(255,111,181,0.18)}
+  h1{margin:0;font-size:22px}
+  .game{display:grid;grid-template-columns:300px 1fr;gap:16px;margin-top:12px}
+  .panel{background:var(--card);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+  .side{min-height:280px;display:flex;flex-direction:column;gap:10px}
+  .main{min-height:320px;display:flex;flex-direction:column}
+  .dialogue-wrap{margin-top:8px;padding:16px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.9),rgba(255,250,253,0.95));flex:1;display:flex;flex-direction:column}
+  .scene-title{font-weight:800;color:var(--accent);margin-bottom:6px;font-size:18px}
+  .scene-text{font-size:15px;line-height:1.6;color:var(--muted);min-height:100px}
+  .choices{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .choice{background:transparent;padding:10px 12px;border-radius:10px;border:2px solid rgba(255,111,181,0.2);cursor:pointer;font-weight:700;text-align:left;transition:all .18s}
+  .choice:hover{background:linear-gradient(90deg,rgba(255,154,209,0.18),rgba(255,111,181,0.12))}
+  .log{flex:1;overflow:auto;padding:8px;background:var(--glass);border-radius:12px;margin-top:10px;font-size:13px;max-height:160px}
+  .bars{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .bar{height:12px;background:var(--glass);border-radius:8px;overflow:hidden}
+  .fill{height:100%;background:var(--accent);width:0%}
+  @media (max-width:768px){.game{grid-template-columns:1fr;}.side{order:2;}.main{order:1;}.header{text-align:center} h1{font-size:20px}}
+  @media (max-width:480px){.mark{width:52px;height:52px;font-size:18px} h1{font-size:18px} .scene-text{font-size:14px} .choice{font-size:14px;padding:8px}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;700&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark">M</div>
+    <div>
+      <h1>A Jornada de Millie</h1>
+      <p class="lead">Um presente interativo para White, escolha com o coração</p>
+    </div>
+  </header>
+  <div class="game">
+    <aside class="panel side">
+      <div class="stat"><span>Personagem:</span> <strong>Millie</strong></div>
+      <div class="stat"><span>Amor:</span> <strong>White</strong></div>
+      <div id="progress">Ainda não começou</div>
+      <div class="bars">
+        <div>Amor <div class="bar"><div id="bar-amor" class="fill"></div></div></div>
+        <div>Tristeza <div class="bar"><div id="bar-tristeza" class="fill"></div></div></div>
+        <div>Solidão <div class="bar"><div id="bar-solidao" class="fill"></div></div></div>
+      </div>
+      <div class="log" id="log"></div>
+    </aside>
+    <main class="panel main">
+      <div class="dialogue-wrap" id="screen"></div>
+    </main>
+  </div>
+</div>
+<script>
+const state = { 
+  scene: 'intro', 
+  history: [], 
+  stats: { amor: 0, tristeza: 0, solidao: 0 } 
+};
+
+const el = id => document.getElementById(id);
+
+const scenes = {
+  intro: {
+    title: 'Prólogo',
+    text: 'White, você acorda com uma carta perfumada de Millie: "Encontre-me no Parque às 18h".',
+    choices: [
+      { txt: 'Ir cedo e preparar uma surpresa', next: 'surprise', effects: { amor: 2 } },
+      { txt: 'Esperar pacientemente', next: 'wait', effects: { amor: 1 } },
+      { txt: 'Ligar para confirmar', next: 'call', effects: { amor: 1, tristeza: 1 } }
+    ]
+  },
+  surprise: {
+    title: 'Preparando a surpresa',
+    text: 'Você chega cedo ao parque e prepara flores e doces.',
+    choices: [
+      { txt: 'Esconder presente no banco', next: 'picnic', effects: { amor: 1 } },
+      { txt: 'Organizar um piquenique', next: 'picnic', effects: { amor: 2 } }
+    ]
+  },
+  wait: {
+    title: 'Esperando',
+    text: 'Você se senta no banco observando o parque.',
+    choices: [
+      { txt: 'Oferecer um abraço ao encontrar Millie', next: 'hug', effects: { amor: 2 } },
+      { txt: 'Perguntar sobre o atraso', next: 'alone', effects: { tristeza: 1 } }
+    ]
+  },
+  call: {
+    title: 'Ligação de Millie',
+    text: 'Millie atende e pergunta se você virá.',
+    choices: [
+      { txt: 'Confirmar que irá', next: 'surprise', effects: { amor: 1 } },
+      { txt: 'Dizer que está ocupado', next: 'alone', effects: { solidao: 1 } }
+    ]
+  },
+  hug: {
+    title: 'Abraço',
+    text: 'O abraço é caloroso, sentindo a conexão.',
+    choices: [
+      { txt: 'Perdoar e seguir juntos', next: 'trueLove', effects: { amor: 3 } },
+      { txt: 'Pedir tempo para reflexão', next: 'alone', effects: { solidao: 2 } }
+    ]
+  },
+  picnic: {
+    title: 'Piquenique',
+    text: 'Vocês compartilham doces e confidências.',
+    choices: [
+      { txt: 'Fazer juramento de amor', next: 'trueLove', effects: { amor: 3 } },
+      { txt: 'Planejar aventura amanhã', next: 'sacrifice', effects: { tristeza: 2 } }
+    ]
+  },
+  trueLove: {
+    title: 'Final Feliz',
+    text: 'Millie e White viveram um amor verdadeiro 💖',
+    choices: [
+      { txt: 'Reiniciar', next: 'reset' }
+    ]
+  },
+  sacrifice: {
+    title: 'Caminhos Separados',
+    text: 'Vocês seguiram caminhos diferentes, mas cresceram com a experiência.',
+    choices: [
+      { txt: 'Reiniciar', next: 'reset' }
+    ]
+  },
+  alone: {
+    title: 'Sozinho',
+    text: 'Millie decidiu trilhar seu próprio caminho, levando White no coração.',
+    choices: [
+      { txt: 'Reiniciar', next: 'reset' }
+    ]
+  }
+};
+
+function updateBars() {
+  el('bar-amor').style.width = (state.stats.amor*20)+"%";
+  el('bar-tristeza').style.width = (state.stats.tristeza*20)+"%";
+  el('bar-solidao').style.width = (state.stats.solidao*20)+"%";
+}
+
+function renderScene(key) {
+  if (key === 'reset') {
+    state.stats = { amor: 0, tristeza: 0, solidao: 0 };
+    state.history = [];
+    return renderScene('intro');
+  }
+  const scene = scenes[key];
+  if (!scene) return;
+  state.scene = key;
+
+  el('progress').textContent = `Cena: ${scene.title} | Amor: ${state.stats.amor} | Tristeza: ${state.stats.tristeza} | Solidão: ${state.stats.solidao}`;
+
+  // criar HTML da cena
+  let html = `<div class='scene-title'>${scene.title}</div>
+              <div class='scene-text'>${scene.text}</div>
+              <div class='choices'>`;
+  scene.choices.forEach((c, i) => {
+    html += `<button class='choice' data-index='${i}'>${c.txt}</button>`;
+  });
+  html += `</div>`;
+
+  el('screen').innerHTML = html;
+
+  // adicionar eventos aos botões
+  document.querySelectorAll('.choice').forEach(btn => {
+    btn.addEventListener('click', () => choose(btn.dataset.index));
+  });
+
+  updateBars();
+}
+
+function choose(index) {
+  const scene = scenes[state.scene];
+  const choice = scene.choices[index];
+  if (!choice) return;
+
+  // aplicar efeitos
+  for (let stat in choice.effects || {}) {
+    if (state.stats.hasOwnProperty(stat)) {
+      state.stats[stat] += choice.effects[stat];
+    }
+  }
+
+  // registrar log
+  state.history.push(`Escolheu: ${choice.txt}`);
+  el('log').innerHTML = state.history.map(s=>`<div>• ${s}</div>`).join('');
+  el('log').scrollTop = el('log').scrollHeight;
+
+  renderScene(choice.next);
+}
+
+// iniciar jogo
+renderScene('intro');
+</script>
+</body>
+</html>
